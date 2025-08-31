@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
-from dhanhq import DhanContext, dhanhq
+from dhanhq import dhanhq
 from datetime import datetime, timedelta, time
 import requests
 import json
@@ -45,8 +45,8 @@ config = load_config()
 
 def get_dhan():
     if config.get("client_id") and config.get("access_token"):
-        ctx = DhanContext(client_id=config["client_id"], access_token=config["access_token"])
-        return dhanhq(ctx)
+        client = DhanHQ(client_id=config["client_id"], access_token=config["access_token"])
+        return client
     return None
 
 

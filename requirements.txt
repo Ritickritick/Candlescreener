@@ -2,5 +2,5 @@ flask
 pandas
 apscheduler
 requests
+dhanhq
 gunicorn
-dhanhq>=2.1.0

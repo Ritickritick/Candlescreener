@@ -2,5 +2,5 @@ flask
 pandas
 apscheduler
 requests
-dhanhq
 gunicorn
+git+https://github.com/dhanhq/dhanhq-python.git

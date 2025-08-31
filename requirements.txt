@@ -3,4 +3,4 @@ pandas
 apscheduler
 requests
 gunicorn
-git+https://github.com/dhanhq/dhanhq-python.git
+dhanhq>=2.1.0

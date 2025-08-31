@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ index }} OHLC Dashboard</title>
+    <meta http-equiv="refresh" content="60">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Professional Palette and Glassmorphism Variables */
+        :root {
+            /* Semantic brand and accent fills */
+            --gradient-main: linear-gradient(135deg, #101829 0%, #1f2c43 58%, #243e74 100%);
+            --gradient-header: linear-gradient(90deg, #2dd4bf 2%, #60a5fa 40%, #6d28d9 100%);
+            --glass-bg: rgba(44, 50, 72, 0.82);
+            --glass-light: rgba(255,255,255,0.15);
+            --bull-green: #25d97b;
+            --bear-red: #f25151;
+            --sky: #559bff;
+            --text-strong: #f5f9fd;
+            --text-mid: #90a7b7;
+            --border-soft: rgba(138,167,229,0.13);
+        }
+        [data-theme="light"] {
+            --gradient-main: linear-gradient(135deg, #e0e7ef 0%, #fcfdff 100%);
+            --gradient-header: linear-gradient(90deg, #2dd4bf 2%, #60a5fa 40%, #6d28d9 100%);
+            --glass-bg: rgba(255,255,255,0.82);
+            --glass-light: rgba(44, 71, 122, 0.04);
+            --text-strong: #182235;
+            --text-mid: #365376;
+            --border-soft: rgba(44,71,122,0.09);
+        }
+
+        html, body {
+            background: var(--gradient-main);
+            color: var(--text-strong);
+            font-family: 'Segoe UI', 'Inter', 'Roboto', Arial, sans-serif;
+            letter-spacing: 0.01em;
+            min-height: 100vh;
+            transition: background 0.5s, color 0.5s;
+        }
+
+        /* Header and Theme Toggle */
+        .dashboard-header {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 32px 0 24px 0;
+            letter-spacing: .03em;
+            text-align: left;
+            background: var(--gradient-header);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .theme-toggle-btn {
+            border-radius: 50%;
+            width: 42px; height: 42px;
+            border: none;
+            background: var(--glass-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.7em;
+            color: var(--sky);
+            transition: background 0.17s;
+            box-shadow: 0 2px 20px -4px #101a3a30;
+            margin-left: 8px;
+        }
+        .theme-toggle-btn:hover { background: var(--glass-light); color: #fabe1d; }
+
+        /* Sticky Filters Bar */
+        .filters-box {
+            background: var(--glass-bg);
+            backdrop-filter: blur(13px);
+            border-radius: 24px;
+            box-shadow: 0 10px 48px -12px rgba(66, 111, 224, 0.15);
+            border: 1px solid var(--border-soft);
+            padding: 24px 20px 10px 20px;
+            margin-bottom: 33px;
+            position: sticky;
+            top: 0; z-index: 30;
+            animation: fadeInUp 0.8s;
+        }
+        /* Dashboard Controls */
+        .btn-custom, .filters-box .btn, .form-select, .form-control {
+            border-radius: 14px !important;
+            font-weight: 500;
+            font-size: 1.065em;
+        }
+
+        /* Card and Table Glassmorphism */
+        .signal-card, .table, .ohlc-table {
+            background: var(--glass-bg);
+            border-radius: 18px;
+            box-shadow: 0 14px 38px -14px #28408ecc;
+            border: 1px solid var(--border-soft);
+            padding-top: 14px;
+            padding-bottom: 10px;
+            animation: fadeInUp 0.7s;
+            will-change: background, box-shadow;
+        }
+
+        /* Signal Card Variants */
+        .bullish {
+            border-left: 7px solid var(--bull-green);
+            background:
+                linear-gradient(135deg, rgba(32,191,107, 0.10) 55%, transparent 78%),
+                var(--glass-bg);
+        }
+        .bearish {
+            border-left: 7px solid var(--bear-red);
+            background:
+                linear-gradient(135deg, rgba(249,41,90,0.10) 66%, transparent 100%),
+                var(--glass-bg);
+        }
+        .todays-signals {
+            border-left: 7px solid var(--sky);
+            background:
+                linear-gradient(120deg, rgba(86,176,255,.10) 74%, transparent 100%),
+                var(--glass-bg);
+        }
+
+        /* Premium Signal Item Look */
+        .signal-item {
+            background: var(--glass-light);
+            border-radius: 13px;
+            margin-bottom: 16px;
+            padding: 15px 18px 11px 14px;
+            font-size: 1.10em;
+            font-weight: 500;
+            color: var(--text-strong);
+            box-shadow: 0 4px 18px 0 rgba(120,168,255,0.08);
+            border: 1.5px solid transparent;
+            transition: background 0.16s, box-shadow 0.17s, border 0.19s;
+        }
+        .signal-item:hover {
+            background: rgba(44,177,255,0.13);
+            border: 1.5px solid #5eead4;
+            box-shadow: 0 7px 36px -7px #37bfd530;
+            transform: translateY(-1px) scale(1.014);
+        }
+        .signal-timestamp {
+            background: #ffebae;
+            color: #21232a;
+            font-weight: 700;
+            padding: 6px 15px;
+            border-radius: 11px;
+            margin-right: 10px;
+            font-size: 1.11em;
+            letter-spacing: .01em;
+        }
+        [data-theme="dark"] .signal-timestamp { background: #fde047; color: #232323; }
+        .signal-index-nifty, .signal-index-banknifty, .signal-index-sensex {
+            font-weight: 800; padding: 4px 14px; border-radius: 13px; margin: 0 4px;
+        }
+        .signal-index-nifty { color: #2563eb; background: #e3f2fd; }
+        .signal-index-banknifty { color: #0093af; background: #e0f7fa; }
+        .signal-index-sensex { color: #d81b60; background: #f8bbd0; }
+
+        .target-circle {
+            background: linear-gradient(145deg, #fef08a 35%, #34d399 95%);
+            color: #222;
+            font-weight: 700;
+            border-radius: 50%;
+            padding: 6px 18px;
+            font-size: 1.05em;
+            margin-left: 5px; margin-right: 6px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.14);
+            border: 2px solid #fbbf24;
+        }
+
+        /* Table Customization */
+        table {
+            background: var(--glass-bg);
+            border-radius: 17px;
+            margin: 0;
+            box-shadow: 0 9px 28px -6px #28408e55;
+            overflow: hidden;
+        }
+        th, td {
+            text-align: center;
+            padding: 12px 7px;
+            font-size: 1.06em;
+            border: none;
+        }
+        th {
+            background: linear-gradient(90deg, #2d3656, #385084 100%);
+            color: #bce9fa;
+            font-size: 1.07em;
+            letter-spacing: .01em;
+            font-weight: bold;
+        }
+        td {
+            background: rgba(52,59,78,0.92);
+            color: #e1e9f3;
+        }
+        .text-nifty { color: #0ea5e9; font-weight: 700; }
+        .text-banknifty { color: #1ad1dc; font-weight: 700; }
+        .text-sensex { color: #e94273; font-weight: 700; }
+
+        /* Cards Container */
+        .signals-container {
+            display: flex;
+            gap: 2.1rem;
+            margin-bottom: 31px;
+            min-height: 375px;
+        }
+        .signals-container > div { flex: 1; min-width: 0; max-height: 520px; overflow-y: auto; }
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .signals-container { flex-direction: column; gap: 22px; }
+            .dashboard-header { font-size: 2.1rem; }
+        }
+        /* Subtle Animations */
+        @keyframes fadeInUp {
+          0% { opacity: 0; transform: translateY(31px);}
+          100% { opacity: 1; transform: none;}
+        }
+
+        /* Flash Messages Tweaks */
+        #flash-messages { position: fixed; top: 10px; right: 16px; z-index: 99; }
+        .alert { border-radius: 13px; font-weight: 600; font-size: 1.09em; padding: 15px 25px; }
+
+        /* Minor Enhancements */
+        h4 { font-weight: 800; color: var(--sky); letter-spacing: .015em; }
+        .btn { font-weight: 700; letter-spacing: .01em;}
+        .table-striped > tbody > tr:nth-of-type(odd) > * {
+            background: rgba(116,180,241,0.07) !important;
+        }
+    </style>
+</head>
+<body data-theme="dark">
+<div class="container-fluid">
+    <div class="d-flex justify-content-center align-items-center">
+        <div class="dashboard-header text-center flex-fill">📊 {{ index }} OHLC Dashboard</div>
+        <button id="theme-btn" class="theme-toggle-btn ms-2" title="Toggle Color Theme">
+            <span id="theme-icon">☼</span>
+        </button>
+    </div>
+    <div class="d-flex justify-content-center mb-3 flex-wrap">
+        <a href="/?index={{ index }}&interval=15min" class="btn btn-primary btn-custom mb-2">Intraday</a>
+        <a href="/?index={{ index }}&interval=1d" class="btn btn-primary btn-custom mb-2">Historical</a>
+        <a href="/toggle_alerts" class="btn btn-success btn-custom mb-2">
+            Telegram Alerts {% if alerts_active %}ON ✅{% else %}OFF ❌{% endif %}
+        </a>
+        <a href="/test_alert" class="btn btn-info btn-custom mb-2">Test Alert</a>
+        <a href="/settings" class="btn btn-secondary btn-custom mb-2">⚙️ Settings</a>
+    </div>
+    <!-- Filters -->
+    <div class="filters-box">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label">Index</label>
+                <select name="index" class="form-select">
+                    {% for idx in index_choices %}
+                        <option value="{{ idx }}" {% if index == idx %}selected{% endif %}>{{ idx }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2"><label class="form-label">From Date</label><input type="date" name="from_date" value="{{ from_date }}" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label">To Date</label><input type="date" name="to_date" value="{{ to_date }}" class="form-control"></div>
+            <div class="col-md-2">
+                <label class="form-label">Interval</label>
+                <select name="interval" class="form-select">
+                    {% for tf in ['1min','5min','15min','30min','45min','1h','2h','3h','4h','1d','1w','1M'] %}
+                        <option value="{{ tf }}" {% if tf == interval %}selected{% endif %}>{{ tf }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 align-self-end"><button type="submit" class="btn btn-primary w-100">Apply Filters</button></div>
+        </form>
+    </div>
+    <!-- Signal Cards -->
+    <div class="signals-container">
+        <div>
+            <div class="signal-card bullish">
+                <h4>📈 Bullish Signals</h4>
+                {% for sig in bullish_signals %}
+                    <div class="signal-item">
+                        <span class="signal-timestamp">{{ sig.time }}</span> |
+                        <span class="signal-index-{% if sig.index == 'NIFTY' %}nifty{% elif sig.index == 'BANKNIFTY' %}banknifty{% elif sig.index == 'SENSEX' %}sensex{% endif %}">{{ sig.index }}</span> |
+                        {{ sig.interval }} →
+                        <strong>🟢 {{ sig.type }}</strong>
+                        <br>
+                        📏 Stoploss: {{ sig.stoploss }} pts | Target:
+                        {% if sig.target > 50 %}
+                            <span class="target-circle">{{ sig.target }}</span>
+                        {% else %}
+                            {{ sig.target }}
+                        {% endif %} pts
+                    </div>
+                {% else %}
+                    <p>No bullish signals</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <div class="signal-card bearish">
+                <h4>📉 Bearish Signals</h4>
+                {% for sig in bearish_signals %}
+                    <div class="signal-item">
+                        <span class="signal-timestamp">{{ sig.time }}</span> |
+                        <span class="signal-index-{% if sig.index == 'NIFTY' %}nifty{% elif sig.index == 'BANKNIFTY' %}banknifty{% elif sig.index == 'SENSEX' %}sensex{% endif %}">{{ sig.index }}</span> |
+                        {{ sig.interval }} →
+                        <strong>🔴 {{ sig.type }}</strong>
+                        <br>
+                        📏 Stoploss: {{ sig.stoploss }} pts | Target:
+                        {% if sig.target > 50 %}
+                            <span class="target-circle">{{ sig.target }}</span>
+                        {% else %}
+                            {{ sig.target }}
+                        {% endif %} pts
+                    </div>
+                {% else %}
+                    <p>No bearish signals</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <div class="signal-card todays-signals">
+                <h4>📅 Today's Signals (Intraday)</h4>
+                {% if todays_signals %}
+                    {% for signal in todays_signals %}
+                        <div class="signal-item">
+                            <span class="signal-timestamp">{{ signal.time }}</span> |
+                            <span class="signal-index-{% if signal.index == 'NIFTY' %}nifty{% elif signal.index == 'BANKNIFTY' %}banknifty{% elif signal.index == 'SENSEX' %}sensex{% endif %}">{{ signal.index }}</span> |
+                            {{ signal.interval }} →
+                            <strong>
+                                {% if 'bullish' in signal.type|lower %}
+                                    🟢 {{ signal.type }}
+                                {% elif 'bearish' in signal.type|lower %}
+                                    🔴 {{ signal.type }}
+                                {% else %}
+                                    {{ signal.type }}
+                                {% endif %}
+                            </strong>
+                            <br>
+                            📏 Stoploss: {{ signal.stoploss }} pts | Target:
+                            {% if signal.target > 50 %}
+                                <span class="target-circle">{{ signal.target }}</span>
+                            {% else %}
+                                {{ signal.target }}
+                            {% endif %} pts
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No signals generated today yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- OHLC Table -->
+    <div class="mt-4">
+        <h4>
+            📊 OHLC Data ({{ interval }})
+            <button id="toggle-btn" class="btn btn-secondary btn-sm ms-2">Hide Table</button>
+        </h4>
+        <div id="ohlc-table">
+            <table class="table table-dark table-striped">
+                <thead>
+                    <tr><th>Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in data %}
+                        <tr>
+                            <td>
+                                <span class="{% if row.index == 'NIFTY' %}text-nifty{% elif row.index == 'BANKNIFTY' %}text-banknifty{% elif row.index == 'SENSEX' %}text-sensex{% endif %}">{{ row.timestamp }}</span>
+                            </td>
+                            <td>{{ row.open }}</td>
+                            <td>{{ row.high }}</td>
+                            <td>{{ row.low }}</td>
+                            <td>{{ row.close }}</td>
+                            <td>{{ row.volume }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Flash Messages -->
+<div id="flash-messages">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+            {% set color = "success" if "Bullish" in msg else "danger" %}
+            <div class="alert alert-{{ color }} alert-dismissible fade show" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Toggle OHLC Table
+    const toggleBtn = document.getElementById('toggle-btn');
+    const ohlcTable = document.getElementById('ohlc-table');
+    toggleBtn.addEventListener('click', () => {
+        if (ohlcTable.style.display === 'none') {
+            ohlcTable.style.display = 'block';
+            toggleBtn.textContent = 'Hide Table';
+        } else {
+            ohlcTable.style.display = 'none';
+            toggleBtn.textContent = 'Show Table';
+        }
+    });
+    // Theme switcher
+    function setTheme(theme) {
+        document.body.setAttribute('data-theme', theme);
+        localStorage.setItem('theme_mode', theme);
+        document.getElementById('theme-icon').innerHTML = theme === "light" ? "☀" : "☾";
+    }
+    document.getElementById('theme-btn').onclick = function() {
+        const nextTheme = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        setTheme(nextTheme);
+    };
+    // On load, set theme from localStorage
+    window.onload = function() {
+        const saved = localStorage.getItem('theme_mode');
+        if(saved === "light" || saved === "dark") setTheme(saved);
+    };
+</script>
+</body>
+</html>

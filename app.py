@@ -748,4 +748,7 @@ def todays_signal():
 if __name__ == "__main__":
     # Important: avoid double scheduler when debug reloader is active
     # Use FLASK_ENV=development and run with use_reloader=False if needed.
-    app.run(debug=True, use_reloader=False)  
+   if __name__ == "__main__":
+    # Only for local development
+    app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)
+  

@@ -645,7 +645,7 @@ def check_all_timeframes():
                     sig = bullish[0]
                     signal_msg = (
                         f"📈 Bullish Signal - {sig['type']} at {sig['time']} "
-                        f"({index_name}, {interval_key})
+                        f"({index_name}, {interval_key})"
 "
                         f"Stoploss: {sig['stoploss']} pts | Target: {sig['target']} pts"
                     )

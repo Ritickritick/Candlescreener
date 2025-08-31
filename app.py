@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
-from dhanhq import DhanContext
+from dhanhq import dhanhq
 from datetime import datetime, timedelta, time
 import requests
 import json
@@ -33,14 +33,9 @@ def save_config(cfg):
 config = load_config()
 
 def get_dhan():
-    """Create and return a DhanContext client if creds are present; else None.
-    Upgraded to use the v2.1+ SDK style (DhanContext). Rest of the code
-    structure remains unchanged and continues to call methods on the returned
-    object as before.
-    """
+    """Create and return a dhanhq client if creds are present; else None."""
     if config.get("client_id") and config.get("access_token"):
-        # DhanContext expects (client_id, access_token)
-        client = DhanContext(config["client_id"], config["access_token"])
+        client = dhanhq(config["client_id"], config["access_token"])
         return client
     return None
 
@@ -64,10 +59,8 @@ def send_telegram_message(message):
     except Exception as e:
         print("❌ Telegram Error:", e)
 
-# Intraday-only timeframes for alerts & "Today's Signals" (to match UI label)
 TIMEFRAMES_TO_NOTIFY = ["15min", "30min", "45min", "1h", "2h", "3h", "4h"]
 
-# Map for upstream API intervals
 TIMEFRAME_MAP = {
     "1min": 1,
     "5min": 5,
@@ -76,13 +69,11 @@ TIMEFRAME_MAP = {
     "1d": "1D",
     "1w": "1W",
     "1m": "1M",
-    # normalized uppercase forms too
     "1W": "1W",
-    "2W": "2W",  # logical label we use locally (built from daily data)
+    "2W": "2W",
     "1M": "1M"
 }
 
-# For building higher-minute frames from a lower base
 BASE_INTERVAL = {
     "30min": "15min",
     "45min": "15min",
@@ -91,7 +82,6 @@ BASE_INTERVAL = {
     "4h": "1h"
 }
 
-# Resample rules for session-anchored aggregation
 RESAMPLE_RULES = {
     "30min": "30min",
     "45min": "45min",
@@ -239,11 +229,9 @@ def show_data():
     if not dhan:
         flash("⚠ Please configure your Dhan credentials in Settings.")
         return redirect(url_for("settings"))
-    # --- CHANGED: default both dates to today ---
     today_str = datetime.now().strftime("%Y-%m-%d")
     from_date = request.args.get('from_date', today_str)
     to_date = request.args.get('to_date', today_str)
-    # Keep minute/hour labels lowercase; normalize only weekly/monthly to uppercase
     requested_interval = request.args.get('interval', '15min')
     interval_key = requested_interval
     if interval_key.lower() == "1w":
@@ -259,7 +247,6 @@ def show_data():
     for index_name, security_id in INDEX_IDS.items():
         try:
             if interval_key == "1W":
-                # weekly resample starting week count from first day of month
                 daily_res = dhan.historical_daily_data(
                     security_id=security_id,
                     exchange_segment="IDX_I",
@@ -399,13 +386,12 @@ def show_data():
             print(f"❌ Error in show_data() for {index_name}: {e}")
             traceback.print_exc()
             continue
-    # Independent fetch of today’s signals (Intraday only, to match the UI label)
     todays_signals_all_timeframes = []
     dhan_independent = get_dhan()
     if dhan_independent:
         from_today = datetime.now().strftime("%Y-%m-%d")
         to_today = from_today
-        for interval_key_tf in TIMEFRAMES_TO_NOTIFY:  # intraday buckets only
+        for interval_key_tf in TIMEFRAMES_TO_NOTIFY:
             fetch_interval_tf = BASE_INTERVAL.get(interval_key_tf, interval_key_tf)
             interval_value_tf = TIMEFRAME_MAP.get(fetch_interval_tf, 15)
             for index_name_tf, security_id_tf in INDEX_IDS.items():
@@ -468,7 +454,6 @@ def show_data():
         alerts_active=True,
         last_alert_sent=last_alert_sent,
         index_choices=INDEX_IDS.keys(),
-        # --- ADDED: Force hide table on load so table is always hidden initially ---
         hide_table_on_load=True,
     )
 
@@ -497,7 +482,6 @@ def settings():
 scheduler = BackgroundScheduler()
 last_sent_times = {}
 
-# Rotating list for UI ticker endpoint
 _todays_signals_storage = []
 todays_signal_index = 0
 
@@ -621,7 +605,6 @@ def check_all_timeframes():
                 print(f"❌ Scheduler error ({index_name}, {interval_key}): {e}")
                 traceback.print_exc()
 
-# run every 60s, single instance
 scheduler.add_job(check_all_timeframes, "interval", seconds=60, id="check_all_timeframes", replace_existing=True, max_instances=1)
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
@@ -636,5 +619,4 @@ def todays_signal():
     return jsonify({"signal": signal})
 
 if __name__ == "__main__":
-    # Only for local development
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)

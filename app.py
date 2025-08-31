@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
-from dhanhq import dhanhq
+from dhanhq import DhanContext
 from datetime import datetime, timedelta, time
 import requests
 import json
@@ -11,13 +11,11 @@ import atexit
 import traceback
 
 
-
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
 
 CONFIG_FILE = "config.json"
-
 
 
 def load_config():
@@ -32,28 +30,30 @@ def load_config():
     }
 
 
-
 def save_config(cfg):
     with open(CONFIG_FILE, "w") as f:
         json.dump(cfg, f, indent=4)
 
 
-
 config = load_config()
 
 
-
 def get_dhan():
+    """Create and return a DhanContext client if creds are present; else None.
+
+    Upgraded to use the v2.1+ SDK style (DhanContext). Rest of the code
+    structure remains unchanged and continues to call methods on the returned
+    object as before.
+    """
     if config.get("client_id") and config.get("access_token"):
-        client = DhanHQ(client_id=config["client_id"], access_token=config["access_token"])
+        # DhanContext expects (client_id, access_token)
+        client = DhanContext(config["client_id"], config["access_token"])
         return client
     return None
 
 
-
 sent_alerts = set()
 last_alert_sent = None
-
 
 
 def send_telegram_message(message):
@@ -72,7 +72,6 @@ def send_telegram_message(message):
         sent_alerts.add(message)
     except Exception as e:
         print("❌ Telegram Error:", e)
-
 
 
 # Intraday-only timeframes for alerts & "Today's Signals" (to match UI label)
@@ -243,12 +242,10 @@ def resample_weekly_from_month_start(df_daily: pd.DataFrame):
     if df_daily.empty:
         return df_daily
 
-
     out = []
     for (year, month), group in df_daily.groupby([df_daily["timestamp"].dt.year, df_daily["timestamp"].dt.month]):
         group = group.sort_values("timestamp")
         start_date = group["timestamp"].iloc[0].normalize()  # first day of that month
-
 
         resampled = (
             group.set_index("timestamp")
@@ -259,11 +256,9 @@ def resample_weekly_from_month_start(df_daily: pd.DataFrame):
         )
         out.append(resampled)
 
-
     if not out:
         return pd.DataFrame()
     return pd.concat(out, ignore_index=True)
-
 
 
 @app.route('/')
@@ -273,12 +268,10 @@ def show_data():
         flash("⚠ Please configure your Dhan credentials in Settings.")
         return redirect(url_for("settings"))
 
-
     # --- CHANGED: default both dates to today ---
     today_str = datetime.now().strftime("%Y-%m-%d")
     from_date = request.args.get('from_date', today_str)
     to_date = request.args.get('to_date', today_str)
-
 
     # Keep minute/hour labels lowercase; normalize only weekly/monthly to uppercase
     requested_interval = request.args.get('interval', '15min')
@@ -290,14 +283,11 @@ def show_data():
     else:
         interval_key = interval_key.lower()
 
-
     selected_index = request.args.get('index', 'NIFTY')
-
 
     table_data = []
     all_bullish = []
     all_bearish = []
-
 
     for index_name, security_id in INDEX_IDS.items():
         try:
@@ -323,18 +313,14 @@ def show_data():
                 for col in ["open", "high", "low", "close"]:
                     df_daily[col] = pd.to_numeric(df_daily.get(col, pd.NA), errors="coerce")
 
-
                 df_resampled = resample_weekly_from_month_start(df_daily)
-
 
                 bullish_signals, bearish_signals = detect_signals_from_df(df_resampled, interval_key, index_name)
                 all_bullish.extend(bullish_signals)
                 all_bearish.extend(bearish_signals)
 
-
                 if index_name == selected_index:
                     table_data.extend(df_resampled.assign(index=index_name).to_dict(orient="records"))
-
 
             elif interval_key == "2W":
                 daily_res = dhan.historical_daily_data(
@@ -357,7 +343,6 @@ def show_data():
                 for col in ["open", "high", "low", "close"]:
                     df_daily[col] = pd.to_numeric(df_daily.get(col, pd.NA), errors="coerce")
 
-
                 df_resampled = (
                     df_daily.set_index("timestamp")
                     .resample("2W-MON", label="left", closed="left")
@@ -366,15 +351,12 @@ def show_data():
                     .reset_index()
                 )
 
-
                 bullish_signals, bearish_signals = detect_signals_from_df(df_resampled, interval_key, index_name)
                 all_bullish.extend(bullish_signals)
                 all_bearish.extend(bearish_signals)
 
-
                 if index_name == selected_index:
                     table_data.extend(df_resampled.assign(index=index_name).to_dict(orient="records"))
-
 
             elif interval_key == "1M":
                 daily_res = dhan.historical_daily_data(
@@ -397,7 +379,6 @@ def show_data():
                 for col in ["open", "high", "low", "close"]:
                     df_daily[col] = pd.to_numeric(df_daily.get(col, pd.NA), errors="coerce")
 
-
                 df_resampled = (
                     df_daily.set_index("timestamp")
                     .resample("MS", label="left", closed="left")
@@ -406,15 +387,12 @@ def show_data():
                     .reset_index()
                 )
 
-
                 bullish_signals, bearish_signals = detect_signals_from_df(df_resampled, interval_key, index_name)
                 all_bullish.extend(bullish_signals)
                 all_bearish.extend(bearish_signals)
 
-
                 if index_name == selected_index:
                     table_data.extend(df_resampled.assign(index=index_name).to_dict(orient="records"))
-
 
             else:
                 fetch_interval = BASE_INTERVAL.get(interval_key, interval_key)
@@ -458,21 +436,17 @@ def show_data():
                 if interval_key in RESAMPLE_RULES:
                     df = resample_session_anchored(df, RESAMPLE_RULES[interval_key], offset_minutes=555)
 
-
                 bullish_signals, bearish_signals = detect_signals_from_df(df, interval_key, index_name)
                 all_bullish.extend(bullish_signals)
                 all_bearish.extend(bearish_signals)
 
-
                 if index_name == selected_index:
                     table_data.extend(df.assign(index=index_name).to_dict(orient="records"))
-
 
         except Exception as e:
             print(f"❌ Error in show_data() for {index_name}: {e}")
             traceback.print_exc()
             continue
-
 
     # Independent fetch of today’s signals (Intraday only, to match the UI label)
     todays_signals_all_timeframes = []
@@ -481,11 +455,9 @@ def show_data():
         from_today = datetime.now().strftime("%Y-%m-%d")
         to_today = from_today
 
-
         for interval_key_tf in TIMEFRAMES_TO_NOTIFY:  # intraday buckets only
             fetch_interval_tf = BASE_INTERVAL.get(interval_key_tf, interval_key_tf)
             interval_value_tf = TIMEFRAME_MAP.get(fetch_interval_tf, 15)
-
 
             for index_name_tf, security_id_tf in INDEX_IDS.items():
                 try:
@@ -528,17 +500,14 @@ def show_data():
                     if interval_key_tf in RESAMPLE_RULES:
                         df_tf = resample_session_anchored(df_tf, RESAMPLE_RULES[interval_key_tf], offset_minutes=555)
 
-
                     bullish_tf, bearish_tf = detect_signals_from_df(df_tf, interval_key_tf, index_name_tf)
                     for sig in bullish_tf + bearish_tf:
                         if sig["time"].date() == datetime.now().date():
                             todays_signals_all_timeframes.append(sig)
 
-
                 except Exception as e:
                     print(f"❌ Error fetching signals for {index_name_tf} at {interval_key_tf}: {e}")
                     traceback.print_exc()
-
 
     return render_template(
         "table.html",
@@ -558,11 +527,9 @@ def show_data():
     )
 
 
-
 @app.route('/last_alert')
 def last_alert():
     return jsonify({"last_alert_sent": last_alert_sent})
-
 
 
 @app.route('/test_alert')
@@ -570,7 +537,6 @@ def test_alert():
     send_telegram_message("🚨 Test Alert: Your OHLC Signal Alerts are working! ✅")
     flash("🚨 Test Alert Sent!")
     return redirect(url_for("show_data"))
-
 
 
 @app.route('/settings', methods=['GET', 'POST'])
@@ -586,15 +552,13 @@ def settings():
     return render_template("settings.html", config=config)
 
 
-
 scheduler = BackgroundScheduler()
 last_sent_times = {}
 
 
 # Rotating list for UI ticker endpoint
-todays_signals = []
+_todays_signals_storage = []
 todays_signal_index = 0
-
 
 
 def reset_sent_alerts():
@@ -602,12 +566,10 @@ def reset_sent_alerts():
     sent_alerts = set()
 
 
-
 def reset_todays_signals():
-    global todays_signals, todays_signal_index
-    todays_signals = []
+    global _todays_signals_storage, todays_signal_index
+    _todays_signals_storage = []
     todays_signal_index = 0
-
 
 
 scheduler.add_job(reset_sent_alerts, 'cron', hour=0, minute=0)
@@ -616,7 +578,7 @@ scheduler.add_job(reset_todays_signals, 'cron', hour=9, minute=15)
 
 
 def check_all_timeframes():
-    global last_alert_sent, todays_signals
+    global last_alert_sent, _todays_signals_storage
     dhan = get_dhan()
     if not dhan:
         return
@@ -683,10 +645,11 @@ def check_all_timeframes():
                     sig = bullish[0]
                     signal_msg = (
                         f"📈 Bullish Signal - {sig['type']} at {sig['time']} "
-                        f"({index_name}, {interval_key})\n"
+                        f"({index_name}, {interval_key})
+"
                         f"Stoploss: {sig['stoploss']} pts | Target: {sig['target']} pts"
                     )
-                    todays_signals.append(
+                    _todays_signals_storage.append(
                         {
                             "time": str(sig["time"]),
                             "index": sig["index"],
@@ -700,10 +663,11 @@ def check_all_timeframes():
                     sig = bearish[0]
                     signal_msg = (
                         f"📉 Bearish Signal - {sig['type']} at {sig['time']} "
-                        f"({index_name}, {interval_key})\n"
+                        f"({index_name}, {interval_key})
+"
                         f"Stoploss: {sig['stoploss']} pts | Target: {sig['target']} pts"
                     )
-                    todays_signals.append(
+                    _todays_signals_storage.append(
                         {
                             "time": str(sig["time"]),
                             "index": sig["index"],
@@ -726,29 +690,22 @@ def check_all_timeframes():
                 traceback.print_exc()
 
 
-
 # run every 60s, single instance
 scheduler.add_job(check_all_timeframes, "interval", seconds=60, id="check_all_timeframes", replace_existing=True, max_instances=1)
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
 
 
-
 @app.route("/todays_signal")
 def todays_signal():
-    global todays_signals, todays_signal_index
-    if not todays_signals:
+    global _todays_signals_storage, todays_signal_index
+    if not _todays_signals_storage:
         return jsonify({"signal": None})
-    signal = todays_signals[todays_signal_index]
-    todays_signal_index = (todays_signal_index + 1) % len(todays_signals)
+    signal = _todays_signals_storage[todays_signal_index]
+    todays_signal_index = (todays_signal_index + 1) % len(_todays_signals_storage)
     return jsonify({"signal": signal})
 
 
-
 if __name__ == "__main__":
-    # Important: avoid double scheduler when debug reloader is active
-    # Use FLASK_ENV=development and run with use_reloader=False if needed.
-   if __name__ == "__main__":
     # Only for local development
     app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)
-  

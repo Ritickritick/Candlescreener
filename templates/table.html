@@ -6,244 +6,87 @@
     <meta http-equiv="refresh" content="60">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* Professional Palette and Glassmorphism Variables */
-        :root {
-            /* Semantic brand and accent fills */
-            --gradient-main: linear-gradient(135deg, #101829 0%, #1f2c43 58%, #243e74 100%);
-            --gradient-header: linear-gradient(90deg, #2dd4bf 2%, #60a5fa 40%, #6d28d9 100%);
-            --glass-bg: rgba(44, 50, 72, 0.82);
-            --glass-light: rgba(255,255,255,0.15);
-            --bull-green: #25d97b;
-            --bear-red: #f25151;
-            --sky: #559bff;
-            --text-strong: #f5f9fd;
-            --text-mid: #90a7b7;
-            --border-soft: rgba(138,167,229,0.13);
-        }
-        [data-theme="light"] {
-            --gradient-main: linear-gradient(135deg, #e0e7ef 0%, #fcfdff 100%);
-            --gradient-header: linear-gradient(90deg, #2dd4bf 2%, #60a5fa 40%, #6d28d9 100%);
-            --glass-bg: rgba(255,255,255,0.82);
-            --glass-light: rgba(44, 71, 122, 0.04);
-            --text-strong: #182235;
-            --text-mid: #365376;
-            --border-soft: rgba(44,71,122,0.09);
-        }
-
-        html, body {
-            background: var(--gradient-main);
-            color: var(--text-strong);
-            font-family: 'Segoe UI', 'Inter', 'Roboto', Arial, sans-serif;
-            letter-spacing: 0.01em;
-            min-height: 100vh;
-            transition: background 0.5s, color 0.5s;
-        }
-
-        /* Header and Theme Toggle */
-        .dashboard-header {
-            font-size: 2.5rem;
-            font-weight: 800;
-            margin: 32px 0 24px 0;
-            letter-spacing: .03em;
-            text-align: left;
-            background: var(--gradient-header);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .theme-toggle-btn {
-            border-radius: 50%;
-            width: 42px; height: 42px;
-            border: none;
-            background: var(--glass-bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.7em;
-            color: var(--sky);
-            transition: background 0.17s;
-            box-shadow: 0 2px 20px -4px #101a3a30;
-            margin-left: 8px;
-        }
-        .theme-toggle-btn:hover { background: var(--glass-light); color: #fabe1d; }
-
-        /* Sticky Filters Bar */
-        .filters-box {
-            background: var(--glass-bg);
-            backdrop-filter: blur(13px);
-            border-radius: 24px;
-            box-shadow: 0 10px 48px -12px rgba(66, 111, 224, 0.15);
-            border: 1px solid var(--border-soft);
-            padding: 24px 20px 10px 20px;
-            margin-bottom: 33px;
-            position: sticky;
-            top: 0; z-index: 30;
-            animation: fadeInUp 0.8s;
-        }
-        /* Dashboard Controls */
-        .btn-custom, .filters-box .btn, .form-select, .form-control {
-            border-radius: 14px !important;
-            font-weight: 500;
-            font-size: 1.065em;
-        }
-
-        /* Card and Table Glassmorphism */
-        .signal-card, .table, .ohlc-table {
-            background: var(--glass-bg);
-            border-radius: 18px;
-            box-shadow: 0 14px 38px -14px #28408ecc;
-            border: 1px solid var(--border-soft);
-            padding-top: 14px;
-            padding-bottom: 10px;
-            animation: fadeInUp 0.7s;
-            will-change: background, box-shadow;
-        }
-
-        /* Signal Card Variants */
-        .bullish {
-            border-left: 7px solid var(--bull-green);
-            background:
-                linear-gradient(135deg, rgba(32,191,107, 0.10) 55%, transparent 78%),
-                var(--glass-bg);
-        }
-        .bearish {
-            border-left: 7px solid var(--bear-red);
-            background:
-                linear-gradient(135deg, rgba(249,41,90,0.10) 66%, transparent 100%),
-                var(--glass-bg);
-        }
-        .todays-signals {
-            border-left: 7px solid var(--sky);
-            background:
-                linear-gradient(120deg, rgba(86,176,255,.10) 74%, transparent 100%),
-                var(--glass-bg);
-        }
-
-        /* Premium Signal Item Look */
-        .signal-item {
-            background: var(--glass-light);
-            border-radius: 13px;
-            margin-bottom: 16px;
-            padding: 15px 18px 11px 14px;
-            font-size: 1.10em;
-            font-weight: 500;
-            color: var(--text-strong);
-            box-shadow: 0 4px 18px 0 rgba(120,168,255,0.08);
-            border: 1.5px solid transparent;
-            transition: background 0.16s, box-shadow 0.17s, border 0.19s;
-        }
-        .signal-item:hover {
-            background: rgba(44,177,255,0.13);
-            border: 1.5px solid #5eead4;
-            box-shadow: 0 7px 36px -7px #37bfd530;
-            transform: translateY(-1px) scale(1.014);
-        }
+        body { background-color: #1e2530; color: #fff; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        .dashboard-header { font-size: 28px; font-weight: bold; margin: 20px 0; }
+        .btn-custom { margin-right: 10px; border-radius: 10px; }
+        .filters-box { background-color: #2c3440; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        .signal-card { border-radius: 12px; padding: 15px; margin-bottom: 20px; }
+        .bullish { background-color: #28a745; }
+        .bearish { background-color: #dc3545; }
+        .todays-signals { background-color: #0d6efd; }
+        .signal-item { background-color: rgba(255, 255, 255, 0.1); margin-bottom: 8px; padding: 8px; border-radius: 6px; }
         .signal-timestamp {
-            background: #ffebae;
-            color: #21232a;
-            font-weight: 700;
-            padding: 6px 15px;
-            border-radius: 11px;
-            margin-right: 10px;
-            font-size: 1.11em;
-            letter-spacing: .01em;
-        }
-        [data-theme="dark"] .signal-timestamp { background: #fde047; color: #232323; }
-        .signal-index-nifty, .signal-index-banknifty, .signal-index-sensex {
-            font-weight: 800; padding: 4px 14px; border-radius: 13px; margin: 0 4px;
-        }
-        .signal-index-nifty { color: #2563eb; background: #e3f2fd; }
-        .signal-index-banknifty { color: #0093af; background: #e0f7fa; }
-        .signal-index-sensex { color: #d81b60; background: #f8bbd0; }
-
-        .target-circle {
-            background: linear-gradient(145deg, #fef08a 35%, #34d399 95%);
+            background: #ffe0b2;
             color: #222;
-            font-weight: 700;
-            border-radius: 50%;
-            padding: 6px 18px;
-            font-size: 1.05em;
-            margin-left: 5px; margin-right: 6px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.14);
-            border: 2px solid #fbbf24;
-        }
-
-        /* Table Customization */
-        table {
-            background: var(--glass-bg);
-            border-radius: 17px;
-            margin: 0;
-            box-shadow: 0 9px 28px -6px #28408e55;
-            overflow: hidden;
-        }
-        th, td {
-            text-align: center;
-            padding: 12px 7px;
-            font-size: 1.06em;
-            border: none;
-        }
-        th {
-            background: linear-gradient(90deg, #2d3656, #385084 100%);
-            color: #bce9fa;
-            font-size: 1.07em;
-            letter-spacing: .01em;
             font-weight: bold;
+            padding: 2px 8px;
+            margin: 0 3px;
+            border-radius: 8px;
+            display: inline-block;
+            white-space: nowrap;
         }
-        td {
-            background: rgba(52,59,78,0.92);
-            color: #e1e9f3;
+        .signal-index-nifty {
+            color: #1e90ff; font-weight: bold; background: #e3f2fd;
+            padding: 2px 8px; border-radius: 7px; margin: 0 3px; display: inline-block;
         }
-        .text-nifty { color: #0ea5e9; font-weight: 700; }
-        .text-banknifty { color: #1ad1dc; font-weight: 700; }
-        .text-sensex { color: #e94273; font-weight: 700; }
+        .signal-index-banknifty {
+            color: #0093af; font-weight: bold; background: #e0f7fa;
+            padding: 2px 8px; border-radius: 7px; margin: 0 3px; display: inline-block;
+        }
+        .signal-index-sensex {
+            color: #d81b60; font-weight: bold; background: #f8bbd0;
+            padding: 2px 8px; border-radius: 7px; margin: 0 3px; display: inline-block;
+        }
+        .target-circle {
+            display: inline-block;
+            background: #ffd600;
+            color: #212121;
+            font-weight: bold;
+            border-radius: 50%;
+            padding: 4px 11px;
+            font-size: 1em;
+            margin-left: 4px;
+            margin-right: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+        }
+        .text-nifty { color: #add8e6; font-weight: bold; }
+        .text-banknifty { color: #87ceeb; font-weight: bold; }
+        .text-sensex { color: #f06292; font-weight: bold; }
+        th, td { text-align: center; padding: 8px; }
+        table { background-color: #2c3440; border-radius: 10px; overflow: hidden; }
+        th { background-color: #3a4354; }
+        td { background-color: #252d3a; }
+        #flash-messages {
+            position: fixed; top: 10px; right: 10px; z-index: 9999;
+        }
 
-        /* Cards Container */
+        /* Added container for signals to display side-by-side */
         .signals-container {
             display: flex;
-            gap: 2.1rem;
-            margin-bottom: 31px;
-            min-height: 375px;
+            gap: 1rem;
+            margin-bottom: 20px;
         }
-        .signals-container > div { flex: 1; min-width: 0; max-height: 520px; overflow-y: auto; }
-        /* Responsive */
-        @media (max-width: 1100px) {
-            .signals-container { flex-direction: column; gap: 22px; }
-            .dashboard-header { font-size: 2.1rem; }
-        }
-        /* Subtle Animations */
-        @keyframes fadeInUp {
-          0% { opacity: 0; transform: translateY(31px);}
-          100% { opacity: 1; transform: none;}
-        }
-
-        /* Flash Messages Tweaks */
-        #flash-messages { position: fixed; top: 10px; right: 16px; z-index: 99; }
-        .alert { border-radius: 13px; font-weight: 600; font-size: 1.09em; padding: 15px 25px; }
-
-        /* Minor Enhancements */
-        h4 { font-weight: 800; color: var(--sky); letter-spacing: .015em; }
-        .btn { font-weight: 700; letter-spacing: .01em;}
-        .table-striped > tbody > tr:nth-of-type(odd) > * {
-            background: rgba(116,180,241,0.07) !important;
+        .signals-container > div {
+            flex: 1;
+            min-width: 0; /* Fix flex container overflow issues */
+            max-height: 500px;
+            overflow-y: auto;
         }
     </style>
 </head>
-<body data-theme="dark">
+<body>
 <div class="container-fluid">
-    <div class="d-flex justify-content-center align-items-center">
-        <div class="dashboard-header text-center flex-fill">📊 {{ index }} OHLC Dashboard</div>
-        <button id="theme-btn" class="theme-toggle-btn ms-2" title="Toggle Color Theme">
-            <span id="theme-icon">☼</span>
-        </button>
-    </div>
-    <div class="d-flex justify-content-center mb-3 flex-wrap">
-        <a href="/?index={{ index }}&interval=15min" class="btn btn-primary btn-custom mb-2">Intraday</a>
-        <a href="/?index={{ index }}&interval=1d" class="btn btn-primary btn-custom mb-2">Historical</a>
-        <a href="/toggle_alerts" class="btn btn-success btn-custom mb-2">
+    <div class="dashboard-header text-center">📊 {{ index }} OHLC Dashboard</div>
+    <div class="d-flex justify-content-center mb-3">
+        <a href="/?index={{ index }}&interval=15min" class="btn btn-primary btn-custom">Intraday</a>
+        <a href="/?index={{ index }}&interval=1d" class="btn btn-primary btn-custom">Historical</a>
+        <a href="/toggle_alerts" class="btn btn-success btn-custom">
             Telegram Alerts {% if alerts_active %}ON ✅{% else %}OFF ❌{% endif %}
         </a>
-        <a href="/test_alert" class="btn btn-info btn-custom mb-2">Test Alert</a>
-        <a href="/settings" class="btn btn-secondary btn-custom mb-2">⚙️ Settings</a>
+        <a href="/test_alert" class="btn btn-info btn-custom">Test Alert</a>
+        <a href="/settings" class="btn btn-secondary btn-custom">⚙️ Settings</a>
     </div>
+
     <!-- Filters -->
     <div class="filters-box">
         <form method="get" class="row g-3">
@@ -268,7 +111,8 @@
             <div class="col-md-2 align-self-end"><button type="submit" class="btn btn-primary w-100">Apply Filters</button></div>
         </form>
     </div>
-    <!-- Signal Cards -->
+
+    <!-- Bullish, Bearish, and Today's Signals side-by-side -->
     <div class="signals-container">
         <div>
             <div class="signal-card bullish">
@@ -292,6 +136,7 @@
                 {% endfor %}
             </div>
         </div>
+
         <div>
             <div class="signal-card bearish">
                 <h4>📉 Bearish Signals</h4>
@@ -314,6 +159,7 @@
                 {% endfor %}
             </div>
         </div>
+
         <div>
             <div class="signal-card todays-signals">
                 <h4>📅 Today's Signals (Intraday)</h4>
@@ -347,6 +193,7 @@
             </div>
         </div>
     </div>
+
     <!-- OHLC Table -->
     <div class="mt-4">
         <h4>
@@ -376,6 +223,7 @@
         </div>
     </div>
 </div>
+
 <!-- Flash Messages -->
 <div id="flash-messages">
     {% with messages = get_flashed_messages() %}
@@ -390,6 +238,7 @@
       {% endif %}
     {% endwith %}
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Toggle OHLC Table
@@ -404,21 +253,6 @@
             toggleBtn.textContent = 'Show Table';
         }
     });
-    // Theme switcher
-    function setTheme(theme) {
-        document.body.setAttribute('data-theme', theme);
-        localStorage.setItem('theme_mode', theme);
-        document.getElementById('theme-icon').innerHTML = theme === "light" ? "☀" : "☾";
-    }
-    document.getElementById('theme-btn').onclick = function() {
-        const nextTheme = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        setTheme(nextTheme);
-    };
-    // On load, set theme from localStorage
-    window.onload = function() {
-        const saved = localStorage.getItem('theme_mode');
-        if(saved === "light" || saved === "dark") setTheme(saved);
-    };
 </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
-flask
-pandas
-apscheduler
-requests
-dhanhq
-gunicorn
+Flask>=3.0.0
+pandas>=2.2.0
+dhanhq==2.0.2
+APScheduler>=3.10.4
+requests>=2.31.0
+gunicorn>=21.2.0
+python-dateutil>=2.8.2

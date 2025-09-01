@@ -1,160 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
-from dhanhq import dhanhq   # ✅ only dhanhq now
-from datetime import datetime, timedelta, time
-import requests
-import json
-import os
-import time as time_module
-from apscheduler.schedulers.background import BackgroundScheduler
-import atexit
-import traceback
-
-
-
-app = Flask(__name__)
-app.secret_key = "supersecretkey"
-
-CONFIG_FILE = "config.json"
-
-
-def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
-    return {
-        "client_id": "",
-        "access_token": "",
-        "telegram_bot_token": "",
-        "telegram_chat_id": ""
-    }
-
-
-def save_config(cfg):
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=4)
-
-
-config = load_config()
-
-
-def get_dhan():
-    if config.get("client_id") and config.get("access_token"):
-        # ✅ direct initialization in v2.0.2
-        return dhanhq(client_id=config["client_id"], access_token=config["access_token"])
-    return None
-
-
-def send_telegram_message(message):
-    try:
-        if config.get("telegram_bot_token") and config.get("telegram_chat_id"):
-            url = f"https://api.telegram.org/bot{config['telegram_bot_token']}/sendMessage"
-            payload = {
-                "chat_id": config["telegram_chat_id"],
-                "text": message
-            }
-            requests.post(url, json=payload)
-    except Exception as e:
-        print("Telegram Error:", e)
-
-
-def fetch_intraday_data(symbol, exchange_segment, instrument_token):
-    try:
-        dhan = get_dhan()
-        if not dhan:
-            return None
-        data = dhan.intraday_minute_data(exchange_segment, instrument_token)
-        if data and "data" in data:
-            df = pd.DataFrame(data["data"])
-            if not df.empty:
-                df["time"] = pd.to_datetime(df["time"], unit="ms")
-                return df
-        return None
-    except Exception as e:
-        print("Error fetching intraday:", e)
-        return None
-
-
-def fetch_daily_data(symbol, exchange_segment, instrument_token):
-    try:
-        dhan = get_dhan()
-        if not dhan:
-            return None
-        data = dhan.historical_daily_data(exchange_segment, instrument_token)
-        if data and "data" in data:
-            df = pd.DataFrame(data["data"])
-            if not df.empty:
-                df["time"] = pd.to_datetime(df["time"], unit="ms")
-                return df
-        return None
-    except Exception as e:
-        print("Error fetching daily:", e)
-        return None
-
-
-def generate_signal(symbol, df):
-    try:
-        if df is None or df.empty:
-            return None
-        latest = df.iloc[-1]
-        prev = df.iloc[-2] if len(df) > 1 else None
-
-        if prev is not None:
-            if latest["close"] > prev["close"]:
-                return f"BUY Signal for {symbol} at {latest['close']}"
-            elif latest["close"] < prev["close"]:
-                return f"SELL Signal for {symbol} at {latest['close']}"
-        return None
-    except Exception as e:
-        print("Error in signal generation:", e)
-        return None
-
-
-def job():
-    try:
-        symbols = [
-            {"symbol": "RELIANCE", "exchange_segment": "NSE_EQ", "instrument_token": "2885"},
-            {"symbol": "TCS", "exchange_segment": "NSE_EQ", "instrument_token": "11536"},
-        ]
-        for s in symbols:
-            df = fetch_intraday_data(s["symbol"], s["exchange_segment"], s["instrument_token"])
-            signal = generate_signal(s["symbol"], df)
-            if signal:
-                send_telegram_message(signal)
-    except Exception as e:
-        print("Job Error:", e)
-        traceback.print_exc()
-
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(func=job, trigger="interval", minutes=1)
-scheduler.start()
-
-atexit.register(lambda: scheduler.shutdown())
-
-
-@app.route("/")
-def index():
-    return render_template("index.html", config=config)
-
-
-@app.route("/update_config", methods=["POST"])
-def update_config():
-    try:
-        config["client_id"] = request.form.get("client_id")
-        config["access_token"] = request.form.get("access_token")
-        config["telegram_bot_token"] = request.form.get("telegram_bot_token")
-        config["telegram_chat_id"] = request.form.get("telegram_chat_id")
-        save_config(config)
-        flash("Configuration updated successfully!", "success")
-    except Exception as e:
-        flash(f"Error updating config: {e}", "danger")
-    return redirect(url_for("index"))
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
- DhanContext, dhanhq
+from dhanhq import dhanhq  # ✅ v2.0.2 uses direct init, no DhanContext
 from datetime import datetime, timedelta, time
 import requests
 import json
@@ -166,36 +12,40 @@ import traceback
 
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.secret_key = os.getenv("SECRET_KEY", "supersecretkey")  # ✅ Render-friendly
 
 
+# NOTE: On Render, the filesystem is ephemeral. We keep the same structure, but read from ENV.
 CONFIG_FILE = "config.json"
 
 
 def load_config():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
+    # ✅ Pull from environment to be Render-friendly (no reliance on file persistence)
     return {
-        "client_id": "",
-        "access_token": "",
-        "telegram_bot_token": "",
-        "telegram_chat_id": ""
+        "client_id": os.getenv("CLIENT_ID", ""),
+        "access_token": os.getenv("ACCESS_TOKEN", ""),
+        "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+        "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", "")
     }
 
 
 def save_config(cfg):
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=4)
+    # ✅ Keep function to preserve structure; write attempt is allowed but ephemeral on Render.
+    # It will not persist across restarts. We still write for local dev parity.
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(cfg, f, indent=4)
+    except Exception as e:
+        print("⚠ Could not write config.json (expected on Render):", e)
 
 
 config = load_config()
 
 
 def get_dhan():
+    # ✅ v2.0.2: initialize the client directly
     if config.get("client_id") and config.get("access_token"):
-        ctx = DhanContext(client_id=config["client_id"], access_token=config["access_token"])
-        return dhanhq(ctx)
+        return dhanhq(config["client_id"], config["access_token"])
     return None
 
 
@@ -387,7 +237,7 @@ def resample_weekly_from_month_start(df_daily: pd.DataFrame):
 def show_data():
     dhan = get_dhan()
     if not dhan:
-        flash("⚠ Please configure your Dhan credentials in Settings.")
+        flash("⚠ Please configure your Dhan credentials in Settings (Render env vars).")
         return redirect(url_for("settings"))
     today_str = datetime.now().strftime("%Y-%m-%d")
     from_date = request.args.get('from_date', today_str)
@@ -395,18 +245,15 @@ def show_data():
     interval_key = request.args.get('interval', '1min').lower()
     selected_index = request.args.get('index', 'NIFTY')
 
-
     if interval_key.lower() == "1w":
         interval_key = "1W"
     if interval_key.lower() == "1m":
         interval_key = "1M"
 
-
     table_data = []
     all_bullish = []
     all_bearish = []
     all_intraday_signals = []
-
 
     for index_name, security_id in INDEX_IDS.items():
         try:
@@ -440,7 +287,6 @@ def show_data():
                 for col in ["open", "high", "low", "close"]:
                     df[col] = pd.to_numeric(df.get(col, pd.NA), errors="coerce")
 
-
             else:
                 res = dhan.intraday_minute_data(
                     security_id=security_id,
@@ -473,7 +319,6 @@ def show_data():
                     df = resample_session_anchored(df, RESAMPLE_RULES[interval_key], offset_minutes=555)
                 df = df[(df["timestamp"].dt.time >= SESSION_START) & (df["timestamp"].dt.time <= SESSION_END)]
 
-
             # Signals
             bullish_signals, bearish_signals = detect_signals_from_df(df, interval_key, index_name)
             all_bullish.extend([dict(d, interval=interval_key) for d in bullish_signals])
@@ -482,12 +327,10 @@ def show_data():
             if index_name == selected_index:
                 table_data.extend(df.assign(index=index_name).to_dict(orient="records"))
 
-
         except Exception as e:
             print(f"❌ Error in show_data() for {index_name}: {e}")
             traceback.print_exc()
             continue
-
 
     # 3. Today's Signals: Collect from all intervals 5min to 4h, sorted by time
     dhan_independent = get_dhan()
@@ -542,7 +385,6 @@ def show_data():
     else:
         todays_signals_all_timeframes = []
 
-
     return render_template(
         "table.html",
         data=table_data,
@@ -574,13 +416,15 @@ def test_alert():
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
+    # Keep route & structure; use env-backed config; allow in-process update (ephemeral on Render)
     if request.method == 'POST':
         config["client_id"] = request.form.get('client_id', '').strip()
         config["access_token"] = request.form.get('access_token', '').strip()
         config["telegram_bot_token"] = request.form.get('telegram_bot_token', '').strip()
         config["telegram_chat_id"] = request.form.get('telegram_chat_id', '').strip()
+        # Save to file for local dev parity (won't persist across Render restarts)
         save_config(config)
-        flash("✅ Settings saved successfully!")
+        flash("✅ Settings saved in-process (note: set ENV VARS on Render for persistence).")
         return redirect(url_for("settings"))
     return render_template("settings.html", config=config)
 
@@ -735,4 +579,6 @@ def todays_signal():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # ✅ Render provides $PORT; bind 0.0.0.0 for external access
+    port = int(os.getenv("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)

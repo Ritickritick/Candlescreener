@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import pandas as pd
-from dhanhq importfrom flask import Flask, render_template, request, redirect, url_for, flash, jsonify
-import pandas as pd
-from dhanhq import dhanhq   # ✅ Only dhanhq now, DhanContext removed
+from dhanhq import dhanhq   # ✅ only dhanhq now
 from datetime import datetime, timedelta, time
 import requests
 import json
@@ -11,6 +9,7 @@ import time as time_module
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 import traceback
+
 
 
 app = Flask(__name__)

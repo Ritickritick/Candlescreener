@@ -609,7 +609,7 @@ def check_all_timeframes():
                         }
                     )
                 if signal_msg:
-                    time_module.sleep(5)
+                    time_module.sleep(2)
                     send_telegram_message(signal_msg)
                     last_alert_sent = signal_msg
                     last_sent_times[key] = ts_iso

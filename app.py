@@ -130,39 +130,96 @@ def resample_session_anchored(df: pd.DataFrame, rule: str, offset_minutes: int) 
     return result
 
 
-def extract_data_list_from_response(res):
-    if res is None:
+# ------------------------ SAFE DATA NORMALIZATION HELPERS ------------------------
+
+def _wrap_single_record_if_needed(obj):
+    """
+    Normalize API response piece into a list-of-dicts.
+    - If obj is dict with scalar values -> wrap: [obj]
+    - If obj is list -> return same
+    - If obj is DataFrame -> convert to records list
+    - Otherwise -> None
+    """
+    if obj is None:
         return None
-    if isinstance(res, list):
-        return res if len(res)>0 else None
-    if isinstance(res, pd.DataFrame):
-        return res.to_dict(orient="records")
-    if isinstance(res, dict):
-        for key in ("data","result","candles","items","rows"):
-            if key in res and res[key]:
-                return res[key]
-        keys = set(res.keys())
-        if {"open","high","low","close","timestamp"}.issubset(keys):
-            return [res]
-    try:
-        if hasattr(res, "get"):
-            maybe = res.get("data") or res.get("result") or res.get("candles")
-            if maybe:
-                return maybe
-    except Exception:
-        pass
+    if isinstance(obj, pd.DataFrame):
+        return obj.to_dict(orient="records")
+    if isinstance(obj, list):
+        return obj if len(obj) > 0 else None
+    if isinstance(obj, dict):
+        # Sometimes providers nest under 'data'/'result' again
+        # If dict-of-dicts list is not provided, treat dict as a single record
+        return [obj]
     return None
 
+
+def extract_data_list_from_response(res):
+    """
+    Make sure whatever the provider returns becomes a clean list of {open,high,low,close,timestamp,...}
+    This avoids: ValueError("If using all scalar values, you must pass an index")
+    """
+    if res is None:
+        return None
+
+    # Common top-level keys
+    if isinstance(res, dict):
+        for key in ("data", "result", "candles", "items", "rows"):
+            if key in res and res[key] is not None:
+                wrapped = _wrap_single_record_if_needed(res[key])
+                if wrapped:
+                    return wrapped
+        # Maybe res itself is a single OHLC record
+        keys = set(res.keys())
+        if {"open","high","low","close"}.issubset(keys):
+            return [res]
+        return None
+
+    # Already list or dataframe etc.
+    return _wrap_single_record_if_needed(res)
+
+
+def safe_dataframe_from_any(resp) -> pd.DataFrame:
+    """
+    Convert normalized list/dict/DataFrame to a valid DataFrame safely.
+    Always returns a DataFrame (possibly empty), never raises scalar-index error.
+    """
+    if resp is None:
+        return pd.DataFrame()
+    if isinstance(resp, pd.DataFrame):
+        return resp.copy()
+
+    # If dict -> single row DF
+    if isinstance(resp, dict):
+        return pd.DataFrame([resp])
+
+    # If list:
+    if isinstance(resp, list):
+        if len(resp) == 0:
+            return pd.DataFrame()
+        # If list of dicts -> good
+        if isinstance(resp[0], dict):
+            return pd.DataFrame(resp)
+        # If list of scalars -> make a single column
+        return pd.DataFrame({"value": resp})
+
+    # Fallback
+    return pd.DataFrame()
+
+
+# -------------------------------------------------------------------------------
 
 def detect_signals_from_df(df: pd.DataFrame, interval_key: str, index_name: str):
     bullish = []
     bearish = []
+    if df.empty or "timestamp" not in df.columns:
+        return bullish, bearish
+
     df = df[(df["timestamp"].dt.time >= SESSION_START) & (df["timestamp"].dt.time <= SESSION_END)]
     for _, row in df.iterrows():
         ts = row.get("timestamp")
         if pd.isna(ts):
             continue
-        o, h, l, c = row["open"], row["high"], row["low"], row["close"]
+        o, h, l, c = row.get("open"), row.get("high"), row.get("low"), row.get("close")
         if pd.isna(o) or pd.isna(h) or pd.isna(l) or pd.isna(c):
             continue
         body_size = abs(c - o)
@@ -273,6 +330,29 @@ def drop_incomplete_last_bar(df: pd.DataFrame, interval_key: str) -> pd.DataFram
     return df
 
 
+def _coerce_ohlc_types(df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure numeric OHLC/volume and timezone-aware timestamp."""
+    if df.empty:
+        return df
+    # timestamp column can be 'timestamp' or 'time'
+    if "timestamp" in df.columns:
+        ts = pd.to_datetime(df["timestamp"], errors="coerce", utc=True)
+    elif "time" in df.columns:
+        ts = pd.to_datetime(df["time"], errors="coerce", utc=True)
+    else:
+        ts = pd.NaT
+    if isinstance(ts, pd.Series):
+        df["timestamp"] = ts.dt.tz_convert("Asia/Kolkata")
+    else:
+        df["timestamp"] = pd.NaT
+    for col in ["open", "high", "low", "close", "volume"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    if "volume" not in df.columns:
+        df["volume"] = 0
+    return df
+
+
 @app.route('/')
 def show_data():
     dhan = get_dhan()
@@ -310,23 +390,10 @@ def show_data():
                     to_date=to_date,
                 )
                 data_list = extract_data_list_from_response(res)
-                if not data_list:
-                    continue
-                df = pd.DataFrame(data_list)
+                df = safe_dataframe_from_any(data_list)
                 if df.empty:
                     continue
-                if "timestamp" in df.columns:
-                    df["timestamp"] = pd.to_datetime(
-                        df["timestamp"], unit="s", errors="coerce", utc=True
-                    ).dt.tz_convert("Asia/Kolkata")
-                elif "time" in df.columns:
-                    df["timestamp"] = pd.to_datetime(
-                        df["time"], unit="s", errors="coerce", utc=True
-                    ).dt.tz_convert("Asia/Kolkata")
-                else:
-                    df["timestamp"] = pd.NaT
-                for col in ["open", "high", "low", "close"]:
-                    df[col] = pd.to_numeric(df.get(col, pd.NA), errors="coerce")
+                df = _coerce_ohlc_types(df)
 
             else:
                 res = dhan.intraday_minute_data(
@@ -338,24 +405,10 @@ def show_data():
                     interval=interval_value,
                 )
                 data_list = extract_data_list_from_response(res)
-                if not data_list:
-                    continue
-                df = pd.DataFrame(data_list)
+                df = safe_dataframe_from_any(data_list)
                 if df.empty:
                     continue
-                if "timestamp" in df.columns:
-                    df["timestamp"] = pd.to_datetime(
-                        df["timestamp"], unit="s", errors="coerce", utc=True
-                    ).dt.tz_convert("Asia/Kolkata")
-                elif "time" in df.columns:
-                    df["timestamp"] = pd.to_datetime(
-                        df["time"], unit="s", errors="coerce", utc=True
-                    ).dt.tz_convert("Asia/Kolkata")
-                else:
-                    df["timestamp"] = pd.NaT
-                for col in ["open", "high", "low", "close"]:
-                    df[col] = pd.to_numeric(df.get(col, pd.NA), errors="coerce")
-                df["volume"] = pd.to_numeric(df.get("volume", 0), errors="coerce").fillna(0)
+                df = _coerce_ohlc_types(df)
                 if interval_key in RESAMPLE_RULES:
                     df = resample_session_anchored(df, RESAMPLE_RULES[interval_key], offset_minutes=555)
                 df = df[(df["timestamp"].dt.time >= SESSION_START) & (df["timestamp"].dt.time <= SESSION_END)]
@@ -395,24 +448,10 @@ def show_data():
                         interval=interval_value_tf,
                     )
                     data_list_tf = extract_data_list_from_response(res)
-                    if not data_list_tf:
-                        continue
-                    df_tf = pd.DataFrame(data_list_tf)
+                    df_tf = safe_dataframe_from_any(data_list_tf)
                     if df_tf.empty:
                         continue
-                    if "timestamp" in df_tf.columns:
-                        df_tf["timestamp"] = pd.to_datetime(
-                            df_tf["timestamp"], unit="s", errors="coerce", utc=True
-                        ).dt.tz_convert("Asia/Kolkata")
-                    elif "time" in df_tf.columns:
-                        df_tf["timestamp"] = pd.to_datetime(
-                            df_tf["time"], unit="s", errors="coerce", utc=True
-                        ).dt.tz_convert("Asia/Kolkata")
-                    else:
-                        df_tf["timestamp"] = pd.NaT
-                    for col in ["open", "high", "low", "close"]:
-                        df_tf[col] = pd.to_numeric(df_tf.get(col, pd.NA), errors="coerce")
-                    df_tf["volume"] = pd.to_numeric(df_tf.get("volume", 0), errors="coerce").fillna(0)
+                    df_tf = _coerce_ohlc_types(df_tf)
                     if interval_key_tf in RESAMPLE_RULES:
                         df_tf = resample_session_anchored(df_tf, RESAMPLE_RULES[interval_key_tf], offset_minutes=555)
                     df_tf = df_tf[(df_tf["timestamp"].dt.time >= SESSION_START) & (df_tf["timestamp"].dt.time <= SESSION_END)]
@@ -537,24 +576,10 @@ def check_all_timeframes():
                     interval=interval_value,
                 )
                 data_list = extract_data_list_from_response(res)
-                if not data_list:
-                    continue
-                df = pd.DataFrame(data_list)
+                df = safe_dataframe_from_any(data_list)
                 if df.empty:
                     continue
-                if "timestamp" in df.columns:
-                    df["timestamp"] = pd.to_datetime(
-                        df["timestamp"], unit="s", errors="coerce", utc=True
-                    ).dt.tz_convert("Asia/Kolkata")
-                elif "time" in df.columns:
-                    df["timestamp"] = pd.to_datetime(
-                        df["time"], unit="s", errors="coerce", utc=True
-                    ).dt.tz_convert("Asia/Kolkata")
-                else:
-                    df["timestamp"] = pd.NaT
-                for col in ["open", "high", "low", "close"]:
-                    df[col] = pd.to_numeric(df.get(col, pd.NA), errors="coerce")
-                df["volume"] = pd.to_numeric(df.get("volume", 0), errors="coerce").fillna(0)
+                df = _coerce_ohlc_types(df)
                 if interval_key in RESAMPLE_RULES:
                     df = resample_session_anchored(df, RESAMPLE_RULES[interval_key], offset_minutes=555)
                 df = df[(df["timestamp"].dt.time >= SESSION_START) & (df["timestamp"].dt.time <= SESSION_END)]
@@ -572,7 +597,10 @@ def check_all_timeframes():
                 if last_sent_times.get(key) == ts_iso:
                     continue
 
-                bullish, bearish = detect_signals_from_df(pd.DataFrame([last_closed_row]), interval_key, index_name)
+                # Build a single-row dataframe safely (Series -> dict -> list-of-dict)
+                last_row_df = pd.DataFrame([last_closed_row.to_dict()])
+                bullish, bearish = detect_signals_from_df(last_row_df, interval_key, index_name)
+
                 signal_msg = None
                 if bullish:
                     sig = bullish[0]

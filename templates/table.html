@@ -1,196 +1,10 @@
-</html>
-</body>
-<script>
-    // Toggle OHLC Table
-    const toggleBtn = document.getElementById('toggle-btn');
-    const ohlcTable = document.getElementById('ohlc-table');
-    toggleBtn.addEventListener('click', () => {
-        if (ohlcTable.style.display === 'none') {
-            ohlcTable.style.display = 'block';
-            toggleBtn.textContent = 'Hide Table';
-        } else {
-            ohlcTable.style.display = 'none';
-            toggleBtn.textContent = 'Show Table';
-        }
-    });
-
-    // 🔹 Test Alert trigger
-    function triggerTestAlert() {
-        fetch("/test_alert")
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message); // show popup instead of redirect
-            })
-            .catch(err => {
-                alert("Error: " + err);
-            });
-    }
-</script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-<div id="flash-messages">
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for msg in messages %}
-            {% set color = "success" if "Bullish" in msg else "danger" %}
-            <div class="alert alert-{{ color }} alert-dismissible fade show" role="alert">
-                {{ msg }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-</div>
-<!-- Flash Messages -->
-
-</div>
-    </div>
-        </div>
-            </table>
-        </div>
-            </tbody>
-                    {% endfor %}
-                        </tr>
-                            <td>{{ row.volume }}</td>
-                            <td>{{ row.close }}</td>
-                            <td>{{ row.low }}</td>
-                            <td>{{ row.high }}</td>
-                            <td>{{ row.open }}</td>
-                            <td>
-                                <span class="{% if row.index == 'NIFTY' %}text-nifty{% elif row.index == 'BANKNIFTY' %}text-banknifty{% elif row.index == 'SENSEX' %}text-sensex{% endif %}">{{ row.timestamp }}</span>
-                            </td>
-                        <tr>
-                    {% for row in data %}
-                <tbody>
-                    <tr><th>Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>
-                <thead>
-            <table class="table table-dark table-striped">
-        <div id="ohlc-table">
-        </h4>
-            <button id="toggle-btn" class="btn btn-secondary btn-sm ms-2">Hide Table</button>
-            📊 OHLC Data ({{ interval }})
-        <h4>
-    <div class="mt-4">
-    <!-- OHLC Table -->
-
-    </div>
-        </div>
-            </div>
-                {% endif %}
-                    <p>No signals generated today yet.</p>
-                {% else %}
-                    {% endfor %}
-                        </div>
-                            {% endif %}
-                                {{ signal.target }}
-                            {% else %}
-                                <span class="target-circle">{{ signal.target }}</span>
-                            {% if signal.target > 50 %}
-                            📏 Stoploss: {{ signal.stoploss }} pts | Target:
-                            <br>
-                            </strong>
-                                {% endif %}
-                                    {{ signal.type }}
-                                {% else %}
-                                    🔴 {{ signal.type }}
-                                {% elif 'bearish' in signal.type|lower %}
-                                    🟢 {{ signal.type }}
-                                {% if 'bullish' in signal.type|lower %}
-                            <strong>
-                            {{ signal.interval }} →
-                            <span class="signal-index-{% if signal.index == 'NIFTY' %}nifty{% elif signal.index == 'BANKNIFTY' %}banknifty{% elif signal.index == 'SENSEX' %}sensex{% endif %}">{{ signal.index }}</span> |
-                            <span class="signal-timestamp">{{ signal.time }}</span> |
-                        <div class="signal-item">
-                    {% for signal in todays_signals %}
-                {% if todays_signals %}
-                <h4>📅 Today's Signals (Intraday)</h4>
-            <div class="signal-card todays-signals">
-        <div>
-    </div>
-        </div>
-            </div>
-                {% endfor %}
-                    <p>No bearish signals</p>
-                {% else %}
-                    </div>
-                        {% endif %}
-                            {{ sig.target }}
-                        {% else %}
-                            <span class="target-circle">{{ sig.target }}</span>
-                        {% if sig.target > 50 %}
-                        📏 Stoploss: {{ sig.stoploss }} pts | Target:
-                        <br>
-                        <strong>🔴 {{ sig.type }}</strong>
-                        {{ sig.interval }} →
-                        <span class="signal-index-{% if sig.index == 'NIFTY' %}nifty{% elif sig.index == 'BANKNIFTY' %}banknifty{% elif sig.index == 'SENSEX' %}sensex{% endif %}">{{ sig.index }}</span> |
-                        <span class="signal-timestamp">{{ sig.time }}</span> |
-                    <div class="signal-item">
-                {% for sig in bearish_signals %}
-                <h4>📉 Bearish Signals</h4>
-            <div class="signal-card bearish">
-        <div>
-    </div>
-        </div>
-            </div>
-                {% endfor %}
-                    <p>No bullish signals</p>
-                {% else %}
-                    </div>
-                        {% endif %}
-                            {{ sig.target }}
-                        {% else %}
-                            <span class="target-circle">{{ sig.target }}</span>
-                        {% if sig.target > 50 %}
-                        📏 Stoploss: {{ sig.stoploss }} pts | Target:
-                        <br>
-                        <strong>🟢 {{ sig.type }}</strong>
-                        {{ sig.interval }} →
-                        <span class="signal-index-{% if sig.index == 'NIFTY' %}nifty{% elif sig.index == 'BANKNIFTY' %}banknifty{% elif sig.index == 'SENSEX' %}sensex{% endif %}">{{ sig.index }}</span> |
-                        <span class="signal-timestamp">{{ sig.time }}</span> |
-                    <div class="signal-item">
-                {% for sig in bullish_signals %}
-                <h4>📈 Bullish Signals</h4>
-            <div class="signal-card bullish">
-        <div>
-    <div class="signals-container">
-    <!-- Bullish, Bearish, and Today's Signals side-by-side -->
-
-    </div>
-        </form>
-            <div class="col-md-2 align-self-end"><button type="submit" class="btn btn-primary w-100">Apply Filters</button></div>
-                </select>
-                    {% endfor %}
-                        <option value="{{ tf }}" {% if tf == interval %}selected{% endif %}>{{ tf }}</option>
-                    {% for tf in ['1min','5min','15min','30min','45min','1h','2h','3h','4h','1d','1w','1M'] %}
-                <select name="interval" class="form-select">
-                <label class="form-label">Interval</label>
-            <div class="col-md-2">
-            <div class="col-md-2"><label class="form-label">To Date</label><input type="date" name="to_date" value="{{ to_date }}" class="form-control"></div>
-            <div class="col-md-2"><label class="form-label">From Date</label><input type="date" name="from_date" value="{{ from_date }}" class="form-control"></div>
-                </select>
-                    {% endfor %}
-                        <option value="{{ idx }}" {% if index == idx %}selected{% endif %}>{{ idx }}</option>
-                    {% for idx in index_choices %}
-                <select name="index" class="form-select">
-                <label class="form-label">Index</label>
-            <div class="col-md-2">
-        <form method="get" class="row g-3">
-    <div class="filters-box">
-    <!-- Filters -->
-
-    </div>
-        <a href="/settings" class="btn btn-secondary btn-custom">⚙️ Settings</a>
-        <button type="button" onclick="triggerTestAlert()" class="btn btn-info btn-custom">Test Alert</button>
-        <a href="/toggle_alerts" class="btn btn-success btn-custom">
-            Telegram Alerts {% if alerts_active %}ON ✅{% else %}OFF ❌{% endif %}
-        </a>
-        <a href="/?index={{ index }}&interval=1d" class="btn btn-primary btn-custom">Historical</a>
-        <a href="/?index={{ index }}&interval=15min" class="btn btn-primary btn-custom">Intraday</a>
-    <div class="d-flex justify-content-center mb-3">
-    <div class="dashboard-header text-center">📊 {{ index }} OHLC Dashboard</div>
-<div class="container-fluid">
-<body>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <title>{{ index }} OHLC Dashboard</title>
+    <meta http-equiv="refresh" content="60">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #1e2530; color: #fff; font-family: 'Segoe UI', Tahoma, sans-serif; }
         .dashboard-header { font-size: 28px; font-weight: bold; margin: 20px 0; }
@@ -259,10 +73,186 @@
             overflow-y: auto;
         }
     </style>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <meta http-equiv="refresh" content="60">
-    <title>{{ index }} OHLC Dashboard</title>
-    <meta charset="UTF-8">
-<head>
-<html lang="en">
-<!DOCTYPE html>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="dashboard-header text-center">📊 {{ index }} OHLC Dashboard</div>
+    <div class="d-flex justify-content-center mb-3">
+        <a href="/?index={{ index }}&interval=15min" class="btn btn-primary btn-custom">Intraday</a>
+        <a href="/?index={{ index }}&interval=1d" class="btn btn-primary btn-custom">Historical</a>
+        <a href="/toggle_alerts" class="btn btn-success btn-custom">
+            Telegram Alerts {% if alerts_active %}ON ✅{% else %}OFF ❌{% endif %}
+        </a>
+        <a href="/test_alert" class="btn btn-info btn-custom">Test Alert</a>
+        <a href="/settings" class="btn btn-secondary btn-custom">⚙️ Settings</a>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-box">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label">Index</label>
+                <select name="index" class="form-select">
+                    {% for idx in index_choices %}
+                        <option value="{{ idx }}" {% if index == idx %}selected{% endif %}>{{ idx }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2"><label class="form-label">From Date</label><input type="date" name="from_date" value="{{ from_date }}" class="form-control"></div>
+            <div class="col-md-2"><label class="form-label">To Date</label><input type="date" name="to_date" value="{{ to_date }}" class="form-control"></div>
+            <div class="col-md-2">
+                <label class="form-label">Interval</label>
+                <select name="interval" class="form-select">
+                    {% for tf in ['1min','5min','15min','30min','45min','1h','2h','3h','4h','1d','1w','1M'] %}
+                        <option value="{{ tf }}" {% if tf == interval %}selected{% endif %}>{{ tf }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 align-self-end"><button type="submit" class="btn btn-primary w-100">Apply Filters</button></div>
+        </form>
+    </div>
+
+    <!-- Bullish, Bearish, and Today's Signals side-by-side -->
+    <div class="signals-container">
+        <div>
+            <div class="signal-card bullish">
+                <h4>📈 Bullish Signals</h4>
+                {% for sig in bullish_signals %}
+                    <div class="signal-item">
+                        <span class="signal-timestamp">{{ sig.time }}</span> |
+                        <span class="signal-index-{% if sig.index == 'NIFTY' %}nifty{% elif sig.index == 'BANKNIFTY' %}banknifty{% elif sig.index == 'SENSEX' %}sensex{% endif %}">{{ sig.index }}</span> |
+                        {{ sig.interval }} →
+                        <strong>🟢 {{ sig.type }}</strong>
+                        <br>
+                        📏 Stoploss: {{ sig.stoploss }} pts | Target:
+                        {% if sig.target > 50 %}
+                            <span class="target-circle">{{ sig.target }}</span>
+                        {% else %}
+                            {{ sig.target }}
+                        {% endif %} pts
+                    </div>
+                {% else %}
+                    <p>No bullish signals</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div>
+            <div class="signal-card bearish">
+                <h4>📉 Bearish Signals</h4>
+                {% for sig in bearish_signals %}
+                    <div class="signal-item">
+                        <span class="signal-timestamp">{{ sig.time }}</span> |
+                        <span class="signal-index-{% if sig.index == 'NIFTY' %}nifty{% elif sig.index == 'BANKNIFTY' %}banknifty{% elif sig.index == 'SENSEX' %}sensex{% endif %}">{{ sig.index }}</span> |
+                        {{ sig.interval }} →
+                        <strong>🔴 {{ sig.type }}</strong>
+                        <br>
+                        📏 Stoploss: {{ sig.stoploss }} pts | Target:
+                        {% if sig.target > 50 %}
+                            <span class="target-circle">{{ sig.target }}</span>
+                        {% else %}
+                            {{ sig.target }}
+                        {% endif %} pts
+                    </div>
+                {% else %}
+                    <p>No bearish signals</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div>
+            <div class="signal-card todays-signals">
+                <h4>📅 Today's Signals (Intraday)</h4>
+                {% if todays_signals %}
+                    {% for signal in todays_signals %}
+                        <div class="signal-item">
+                            <span class="signal-timestamp">{{ signal.time }}</span> |
+                            <span class="signal-index-{% if signal.index == 'NIFTY' %}nifty{% elif signal.index == 'BANKNIFTY' %}banknifty{% elif signal.index == 'SENSEX' %}sensex{% endif %}">{{ signal.index }}</span> |
+                            {{ signal.interval }} →
+                            <strong>
+                                {% if 'bullish' in signal.type|lower %}
+                                    🟢 {{ signal.type }}
+                                {% elif 'bearish' in signal.type|lower %}
+                                    🔴 {{ signal.type }}
+                                {% else %}
+                                    {{ signal.type }}
+                                {% endif %}
+                            </strong>
+                            <br>
+                            📏 Stoploss: {{ signal.stoploss }} pts | Target:
+                            {% if signal.target > 50 %}
+                                <span class="target-circle">{{ signal.target }}</span>
+                            {% else %}
+                                {{ signal.target }}
+                            {% endif %} pts
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p>No signals generated today yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- OHLC Table -->
+    <div class="mt-4">
+        <h4>
+            📊 OHLC Data ({{ interval }})
+            <button id="toggle-btn" class="btn btn-secondary btn-sm ms-2">Hide Table</button>
+        </h4>
+        <div id="ohlc-table">
+            <table class="table table-dark table-striped">
+                <thead>
+                    <tr><th>Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in data %}
+                        <tr>
+                            <td>
+                                <span class="{% if row.index == 'NIFTY' %}text-nifty{% elif row.index == 'BANKNIFTY' %}text-banknifty{% elif row.index == 'SENSEX' %}text-sensex{% endif %}">{{ row.timestamp }}</span>
+                            </td>
+                            <td>{{ row.open }}</td>
+                            <td>{{ row.high }}</td>
+                            <td>{{ row.low }}</td>
+                            <td>{{ row.close }}</td>
+                            <td>{{ row.volume }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Flash Messages -->
+<div id="flash-messages">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for msg in messages %}
+            {% set color = "success" if "Bullish" in msg else "danger" %}
+            <div class="alert alert-{{ color }} alert-dismissible fade show" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Toggle OHLC Table
+    const toggleBtn = document.getElementById('toggle-btn');
+    const ohlcTable = document.getElementById('ohlc-table');
+    toggleBtn.addEventListener('click', () => {
+        if (ohlcTable.style.display === 'none') {
+            ohlcTable.style.display = 'block';
+            toggleBtn.textContent = 'Hide Table';
+        } else {
+            ohlcTable.style.display = 'none';
+            toggleBtn.textContent = 'Show Table';
+        }
+    });
+</script>
+</body>
+</html>

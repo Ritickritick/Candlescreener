@@ -233,6 +233,46 @@ def resample_weekly_from_month_start(df_daily: pd.DataFrame):
     return result
 
 
+# ===== New helpers to ensure only completed candles are used =====
+def _interval_rule_for_display(interval_key: str) -> str | None:
+    """Return a pandas resample rule for the UI interval if applicable."""
+    # Only intervals we resample need the rule; 1min returns None
+    return RESAMPLE_RULES.get(interval_key)
+
+
+def _step_offset_for_interval(interval_key: str):
+    """Return a pandas DateOffset step for the given interval (UI interval)."""
+    rule = RESAMPLE_RULES.get(interval_key)
+    if rule:
+        return pd.tseries.frequencies.to_offset(rule)
+    # For 1min (or raw fetch intervals), treat as 1 minute
+    minutes = TIMEFRAME_MAP.get(interval_key)
+    if isinstance(minutes, int):
+        return pd.tseries.frequencies.to_offset(f"{minutes}min")
+    return None
+
+
+def drop_incomplete_last_bar(df: pd.DataFrame, interval_key: str) -> pd.DataFrame:
+    """Drop the last bar if its end time is in the future (i.e., candle still forming)."""
+    if df.empty or "timestamp" not in df.columns:
+        return df
+    step = _step_offset_for_interval(interval_key)
+    if step is None:
+        return df
+    last_ts = df["timestamp"].iloc[-1]
+    try:
+        now_ist = pd.Timestamp.now(tz="Asia/Kolkata")
+    except Exception:
+        now_utc = pd.Timestamp.utcnow().tz_localize("UTC")
+        now_ist = now_utc.tz_convert("Asia/Kolkata")
+    # Bars are left-labeled; completed if start + step <= now
+    if pd.isna(last_ts):
+        return df
+    if (last_ts + step) > now_ist:
+        return df.iloc[:-1].copy()
+    return df
+
+
 @app.route('/')
 def show_data():
     dhan = get_dhan()
@@ -242,7 +282,8 @@ def show_data():
     today_str = datetime.now().strftime("%Y-%m-%d")
     from_date = request.args.get('from_date', today_str)
     to_date = request.args.get('to_date', today_str)
-    interval_key = request.args.get('interval', '1min').lower()
+    # ✅ Change 1: default load on 15min
+    interval_key = request.args.get('interval', '15min').lower()
     selected_index = request.args.get('index', 'NIFTY')
 
     if interval_key.lower() == "1w":
@@ -318,8 +359,10 @@ def show_data():
                 if interval_key in RESAMPLE_RULES:
                     df = resample_session_anchored(df, RESAMPLE_RULES[interval_key], offset_minutes=555)
                 df = df[(df["timestamp"].dt.time >= SESSION_START) & (df["timestamp"].dt.time <= SESSION_END)]
+                # ✅ Change 2: only completed bars shown on dashboard
+                df = drop_incomplete_last_bar(df, interval_key)
 
-            # Signals
+            # Signals (on completed bars only)
             bullish_signals, bearish_signals = detect_signals_from_df(df, interval_key, index_name)
             all_bullish.extend([dict(d, interval=interval_key) for d in bullish_signals])
             all_bearish.extend([dict(d, interval=interval_key) for d in bearish_signals])
@@ -338,7 +381,7 @@ def show_data():
         from_today = today_str
         to_today = today_str
         all_today_signals = []
-        for interval_key_tf in TIMEFRAMES_TO_NOTIFY:
+        for interval_key_tf in TIMEFRAMES_TO_NOTIFY:  # ✅ Change 3 stays: 5min and above only
             fetch_interval_tf = BASE_INTERVAL.get(interval_key_tf, interval_key_tf)
             interval_value_tf = TIMEFRAME_MAP.get(fetch_interval_tf, interval_key_tf)
             for index_name_tf, security_id_tf in INDEX_IDS.items():
@@ -373,6 +416,8 @@ def show_data():
                     if interval_key_tf in RESAMPLE_RULES:
                         df_tf = resample_session_anchored(df_tf, RESAMPLE_RULES[interval_key_tf], offset_minutes=555)
                     df_tf = df_tf[(df_tf["timestamp"].dt.time >= SESSION_START) & (df_tf["timestamp"].dt.time <= SESSION_END)]
+                    # ✅ Change 2 applied here as well
+                    df_tf = drop_incomplete_last_bar(df_tf, interval_key_tf)
                     bullish_tf, bearish_tf = detect_signals_from_df(df_tf, interval_key_tf, index_name_tf)
                     for sig in bullish_tf + bearish_tf:
                         sig["interval"] = interval_key_tf
@@ -452,8 +497,12 @@ scheduler.add_job(reset_sent_alerts, 'cron', hour=0, minute=0)
 scheduler.add_job(reset_todays_signals, 'cron', hour=9, minute=15)
 
 
+# ✅ Change 4: One-time 1-minute test flag & routes
+ENABLE_1MIN_TEST = False  # toggled by /enable_1min_test; auto resets after first 1min signal is sent
+
+
 def check_all_timeframes():
-    global last_alert_sent, todays_signals
+    global last_alert_sent, todays_signals, ENABLE_1MIN_TEST
     dhan = get_dhan()
     if not dhan:
         return
@@ -469,7 +518,12 @@ def check_all_timeframes():
     bullish_emoji = "🐂"
     bearish_emoji = "🐻"
 
-    for interval_key in TIMEFRAMES_TO_NOTIFY:
+    # Build list, optionally including 1min exactly once for test
+    timeframe_loop = list(TIMEFRAMES_TO_NOTIFY)
+    if ENABLE_1MIN_TEST and "1min" not in timeframe_loop:
+        timeframe_loop = ["1min"] + timeframe_loop  # prioritize quick test send
+
+    for interval_key in timeframe_loop:
         fetch_interval = BASE_INTERVAL.get(interval_key, interval_key)
         interval_value = TIMEFRAME_MAP.get(fetch_interval, 15)
         for index_name, security_id in INDEX_IDS.items():
@@ -504,17 +558,21 @@ def check_all_timeframes():
                 if interval_key in RESAMPLE_RULES:
                     df = resample_session_anchored(df, RESAMPLE_RULES[interval_key], offset_minutes=555)
                 df = df[(df["timestamp"].dt.time >= SESSION_START) & (df["timestamp"].dt.time <= SESSION_END)]
+
+                # ✅ Ensure we signal only after bar completion:
+                # For reliability, we still look at the last fully closed bar, i.e., -2 if last may be forming.
                 if df.shape[0] < 2:
                     continue
-                last_row = df.iloc[-2]
-                ts = last_row["timestamp"]
+                last_closed_row = df.iloc[-2]
+                ts = last_closed_row["timestamp"]
                 if pd.isna(ts):
                     continue
                 ts_iso = pd.Timestamp(ts).isoformat()
                 key = f"{index_name}_{interval_key}"
                 if last_sent_times.get(key) == ts_iso:
                     continue
-                bullish, bearish = detect_signals_from_df(pd.DataFrame([last_row]), interval_key, index_name)
+
+                bullish, bearish = detect_signals_from_df(pd.DataFrame([last_closed_row]), interval_key, index_name)
                 signal_msg = None
                 if bullish:
                     sig = bullish[0]
@@ -556,6 +614,10 @@ def check_all_timeframes():
                     last_alert_sent = signal_msg
                     last_sent_times[key] = ts_iso
                     print("Sent:", signal_msg)
+                    # ✅ If this was the 1min test, turn it off after first send
+                    if ENABLE_1MIN_TEST and interval_key == "1min":
+                        ENABLE_1MIN_TEST = False
+                        print("🔕 1min test auto-disabled after first signal.")
                 else:
                     last_sent_times[key] = ts_iso
             except Exception as e:
@@ -563,6 +625,7 @@ def check_all_timeframes():
                 traceback.print_exc()
 
 
+# Keep same job signature; logic inside handles 1min test toggle
 scheduler.add_job(check_all_timeframes, "interval", seconds=60, id="check_all_timeframes", replace_existing=True, max_instances=1)
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
@@ -576,6 +639,22 @@ def todays_signal():
     signal = todays_signals[todays_signal_index]
     todays_signal_index = (todays_signal_index + 1) % len(todays_signals)
     return jsonify({"signal": signal})
+
+
+# ✅ Routes to control 1min test
+@app.route("/enable_1min_test")
+def enable_1min_test():
+    global ENABLE_1MIN_TEST
+    ENABLE_1MIN_TEST = True
+    flash("✅ 1-minute test enabled. A single 1min signal will be sent when the next candle completes.")
+    return redirect(url_for("show_data"))
+
+@app.route("/disable_1min_test")
+def disable_1min_test():
+    global ENABLE_1MIN_TEST
+    ENABLE_1MIN_TEST = False
+    flash("🔕 1-minute test disabled.")
+    return redirect(url_for("show_data"))
 
 
 if __name__ == "__main__":

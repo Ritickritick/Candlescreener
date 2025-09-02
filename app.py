@@ -626,7 +626,7 @@ def check_all_timeframes():
 
 
 # Keep same job signature; logic inside handles 1min test toggle
-scheduler.add_job(check_all_timeframes, "interval", seconds=60, id="check_all_timeframes", replace_existing=True, max_instances=1)
+scheduler.add_job(check_all_timeframes, "interval", seconds=5, id="check_all_timeframes", replace_existing=True, max_instances=1)
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
 

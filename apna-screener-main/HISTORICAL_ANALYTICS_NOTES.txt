@@ -1,0 +1,22 @@
+APNA-SCREENER - HISTORICAL ANALYTICS UPDATE
+
+Isolated additions:
+- Added /historical-analytics page and navigation link.
+- Added signal_analytics.py for historical candle fetching, signal reconstruction, target/stoploss evaluation, fixed-points evaluation, and timeframe summaries.
+- Existing scanner rules, live alerts, scheduler, and settings flow were not intentionally rewritten.
+
+Important behavior:
+- The original scanner did not permanently log each emitted signal. The new page reconstructs historical signal candidates from Dhan OHLC candles using the current signal rules. It cannot guarantee these are exactly the alerts that were actually sent at the time.
+- Historical accuracy requires Dhan to return the requested intraday candles. API failures are displayed on the page.
+- Accuracy = wins / (wins + losses). Pending trades are excluded. If both levels are touched within one OHLC candle, that case is conservatively counted as a loss because candle data cannot identify which level was hit first.
+- Fixed-points evaluation uses symmetric favourable/adverse thresholds based on the configured points value.
+- The page fetches data on demand; it does not persist old alerts or cache historical requests.
+
+Credentials:
+- config.json in this package has blank credential fields intentionally. Do not commit API tokens/passwords to a public repository. Configure credentials with environment variables in the hosting provider. If a real Dhan access token or Telegram bot token was present in a public repository, revoke/rotate it.
+
+Validation performed:
+- Python syntax compilation passed for app.py, signal_analytics.py and existing Python files.
+- Jinja template syntax passed for historical_analytics.html.
+- Signal outcome helper smoke test passed.
+- Full Flask/API integration could not be run in this environment because Flask is not installed here and no live Dhan API call was made.

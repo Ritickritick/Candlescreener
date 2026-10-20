@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Historical Signal Analytics</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#151a23; color:#e9edf5; }
+    .card, .panel { background:#202735; color:#e9edf5; border:1px solid #394354; }
+    .form-control, .form-select { background:#111722; color:#e9edf5; border-color:#465267; }
+    .form-control:focus, .form-select:focus { background:#111722; color:#e9edf5; }
+    .table { --bs-table-bg:#202735; --bs-table-color:#e9edf5; --bs-table-border-color:#394354; }
+    .muted { color:#aeb9ca; }
+    .win { color:#5fe0a0; font-weight:700; }
+    .loss { color:#ff8585; font-weight:700; }
+    .pending { color:#f4cf74; font-weight:700; }
+    .table-responsive { max-height:65vh; }
+    .small-note { font-size:.9rem; }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-secondary mb-4">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">📊 OHLC Dashboard</a>
+    <div class="d-flex gap-2"><a href="/" class="btn btn-outline-light">Home</a><a href="/settings" class="btn btn-outline-light">Settings</a></div>
+  </div>
+</nav>
+<div class="container-fluid px-3 px-lg-4 pb-5">
+  <h2 class="mb-2">Historical Signal Analytics</h2>
+  <p class="muted">Timeframe-wise signal count, target/stoploss outcomes, and fixed-points outcomes.</p>
+
+  <div class="alert alert-warning small-note">
+    <strong>Important:</strong> This page reconstructs historical signal candidates from Dhan OHLC data using the scanner's current candle rules. Your old app did not permanently save every alert, so this cannot prove the exact alerts that were actually sent six months ago. Results also depend on historical data availability.
+  </div>
+  {% if validation_error %}<div class="alert alert-danger">{{ validation_error }}</div>{% endif %}
+
+  <div class="card p-3 mb-4">
+    <form method="post" class="row g-3 align-items-end">
+      <div class="col-12 col-md-3"><label class="form-label">From Date</label><input class="form-control" type="date" name="from_date" value="{{ from_date }}" required></div>
+      <div class="col-12 col-md-3"><label class="form-label">To Date</label><input class="form-control" type="date" name="to_date" value="{{ to_date }}" required></div>
+      <div class="col-12 col-md-2"><label class="form-label">Index</label><select class="form-select" name="index">{% for idx in index_choices %}<option value="{{ idx }}" {% if index == idx %}selected{% endif %}>{% if idx == 'ALL' %}All Indices{% else %}{{ idx }}{% endif %}</option>{% endfor %}</select></div>
+      <div class="col-12 col-md-2"><label class="form-label">Fixed points (favourable/adverse)</label><input class="form-control" type="number" name="fixed_points" min="0.01" max="100000" step="0.01" value="{{ fixed_points }}" required></div>
+      <div class="col-12 col-md-2"><button class="btn btn-primary w-100" type="submit">Run Analysis</button></div>
+    </form>
+    <div class="muted small-note mt-3">A run can take some time because historical candles are requested in date chunks. API failures are listed below.</div>
+  </div>
+
+  {% if result %}
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3"><div class="card p-3 h-100"><div class="muted">Signals reconstructed</div><div class="fs-2 fw-bold">{{ result.rows|length }}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card p-3 h-100"><div class="muted">Candle-data requests</div><div class="fs-2 fw-bold">{{ result.request_count }}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card p-3 h-100"><div class="muted">Date range</div><div class="fw-bold">{{ from_date }}<br>to {{ to_date }}</div></div></div>
+      <div class="col-6 col-lg-3"><div class="card p-3 h-100"><div class="muted">Fixed-point rule</div><div class="fs-2 fw-bold">±{{ fixed_points }}</div></div></div>
+    </div>
+
+    {% if result.errors %}
+      <div class="alert alert-warning"><strong>Some API requests failed ({{ result.errors|length }}):</strong><ul class="mb-0 mt-2">{% for err in result.errors[:12] %}<li>{{ err }}</li>{% endfor %}</ul>{% if result.errors|length > 12 %}<div class="mt-1">Only first 12 errors shown.</div>{% endif %}</div>
+    {% endif %}
+
+    <h4 class="mb-3">Timeframe comparison</h4>
+    <div class="table-responsive mb-4">
+      <table class="table table-bordered table-hover align-middle">
+        <thead><tr><th rowspan="2">Timeframe</th><th rowspan="2">Signals</th><th colspan="4" class="text-center">Target / Stoploss</th><th colspan="4" class="text-center">Fixed ±{{ fixed_points }} points</th></tr>
+        <tr><th>Wins</th><th>Losses</th><th>Pending</th><th>Accuracy</th><th>Wins</th><th>Losses</th><th>Pending</th><th>Accuracy</th></tr></thead>
+        <tbody>
+        {% for s in result.summaries %}
+          <tr><td><strong>{{ s.timeframe }}</strong></td><td>{{ s.signals }}</td><td>{{ s.sl_target.wins }}</td><td>{{ s.sl_target.losses }}</td><td>{{ s.sl_target.pending }}</td><td>{% if s.sl_target.accuracy is not none %}<strong>{{ s.sl_target.accuracy }}%</strong>{% else %}—{% endif %}</td><td>{{ s.fixed_points.wins }}</td><td>{{ s.fixed_points.losses }}</td><td>{{ s.fixed_points.pending }}</td><td>{% if s.fixed_points.accuracy is not none %}<strong>{{ s.fixed_points.accuracy }}%</strong>{% else %}—{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="muted small-note">Accuracy = wins ÷ (wins + losses). Pending signals are excluded until the target/stoploss or fixed-point threshold is reached. If both favourable and adverse levels are touched in the same candle, the result is conservatively counted as a loss. Candle OHLC cannot reveal which level was hit first within that candle.</p>
+
+    <h4 class="mb-3">Signal-by-signal results <span class="muted small-note">(latest 1,000 shown)</span></h4>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-bordered align-middle">
+        <thead><tr><th>Date/time</th><th>Index</th><th>Timeframe</th><th>Direction</th><th>Pattern</th><th>Entry</th><th>SL points</th><th>Target points</th><th>Target/SL result</th><th>Fixed-point result</th></tr></thead>
+        <tbody>
+        {% for r in result.rows[:1000] %}
+          <tr><td>{{ r.time }}</td><td>{{ r.index }}</td><td>{{ r.timeframe }}</td><td>{{ r.direction }}</td><td>{{ r.signal_type }}</td><td>{{ r.entry }}</td><td>{{ r.stoploss_points }}</td><td>{{ r.target_points }}</td><td class="{% if r.sl_outcome == 'WIN' %}win{% elif r.sl_outcome == 'LOSS' %}loss{% else %}pending{% endif %}">{{ r.sl_outcome }}{% if r.sl_exit_time %}<div class="muted small-note fw-normal">{{ r.sl_exit_time }}</div>{% endif %}</td><td class="{% if r.fixed_outcome == 'WIN' %}win{% elif r.fixed_outcome == 'LOSS' %}loss{% else %}pending{% endif %}">{{ r.fixed_outcome }}{% if r.fixed_exit_time %}<div class="muted small-note fw-normal">{{ r.fixed_exit_time }}</div>{% endif %}</td></tr>
+        {% else %}
+          <tr><td colspan="10" class="text-center">No signals found in this date range, or historical candle data was unavailable.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>

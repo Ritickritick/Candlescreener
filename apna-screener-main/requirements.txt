@@ -1,0 +1,6 @@
+Flask
+pandas
+dhanhq
+requests
+apscheduler
+gunicorn
